@@ -77,30 +77,35 @@ def delete_customer(customer_id):
 
 # `GET /customers/<customer_id>/rentals`
 #List the customers who currently have the scooter checked out
-# @customers_bp.route("/<customer_id>/rentals", methods=["GET"])
-# def get_rentals_by_customer_id(customer_id):
+@customers_bp.route("/<customer_id>/rentals", methods=["GET"])
+def get_rentals_by_customer_id(customer_id):
+    
+    customer = validate_model(Customer, customer_id)
+    print(f"customer = {customer}")
+    rental_query = Rental.query.filter_by(customer_id=customer.id).join(Scooter).filter(Rental.is_returned == False)
+    
+    rental_id_list = []
+    for rental in rental_query:
+        rental_id_list.append(rental)
+    print(f"rental_id_list={rental_id_list}")
 
-#     customer = validate_model(Customer, customer_id)
-#     Scooter_query = Rental.query.filter_by(customer_id=customer.id).join(Scooter)
-#     request_body = request.get_json()
-#     new_rental = Rental(
-#         is_returned = request_body["is_returned"],
-#         customer = customer
-#     )
+    if len(rental_id_list) == 0:
+        abort(make_response({"message":f"No rental found"}, 400))
 
-#     db.session.add(new_rental)
-#     db.session.commit()
+    current_rental = rental_id_list[0].to_dict()
+   
+    return jsonify(current_rental), 200
 
-#     return make_response(jsonify(f"Rental {new_rental.id} by {new_rental.customer.name} successfully created"), 201)
-
-# `GET /customers/<id>/rentals`
+# `GET /customers/<customer_id>/history`
 #List the customers who previous have the scooter checked out
-@customers_bp.route("/<id>/history", methods=["GET"])
-def read_a_customers_all_rental_history(id):
-    customer = validate_model(Customer, id)
-    customer_rental = Rental.query.filter_by(customer_id=customer.id,check_out_status = False).join(Video).all()
+# The rental history should remain intact - rental history should not be deleted when a scooter is returned.
+@customers_bp.route("/<customer_id>/history", methods=["GET"])
+def read_a_customers_all_rental_history(customer_id):
+    customer = validate_model(Customer, customer_id)
+
+    customer_rental = Rental.query.filter_by(customer_id=customer.id).join(Scooter).filter(Rental.is_returned == True).all()
 
     customer_history_res =[]
-    for video in customer_rental:
-        customer_history_res.append(video.video.to_dict())
+    for rental in customer_rental:
+        customer_history_res.append(rental.to_dict())
     return jsonify(customer_history_res), 200
